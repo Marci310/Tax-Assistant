@@ -1,0 +1,72 @@
+# Cloud mode (OpenAI):        docker compose up --build
+# Local mode (Ollama on GPU): docker compose --profile local up --build
+# Both modes read their settings from .env (copy .env.example first).
+
+services:
+  backend:
+    build: ./api
+    ports:
+      - "8000:8000"
+    env_file: .env
+    volumes:
+      - ./data/raw:/app/data/raw:ro
+    depends_on:
+      qdrant:
+        condition: service_healthy
+      ollama-init:
+        # Only exists in the "local" profile; in cloud mode this dependency is skipped.
+        condition: service_completed_successfully
+        required: false
+    restart: unless-stopped
+
+  qdrant:
+    image: qdrant/qdrant:v1.20.2
+    ports:
+      - "6333:6333"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c ':> /dev/tcp/127.0.0.1/6333' || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama:0.40.17
+    profiles: ["local"]
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_models:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  ollama-init:
+    image: ollama/ollama:0.40.17
+    profiles: ["local"]
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    env_file: .env
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - ollama pull "$${OLLAMA_CHAT_MODEL}" && ollama pull "$${OLLAMA_EMBEDDING_MODEL}"
+    restart: "no"
+
+volumes:
+  qdrant_data:
+  ollama_models:

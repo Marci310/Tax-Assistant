@@ -1,0 +1,18 @@
+# Web server
+fastapi
+uvicorn[standard]
+pydantic-settings
+
+# RAG pipeline
+langgraph
+langchain-core
+langchain-text-splitters
+pypdf
+
+# Model providers
+langchain-openai
+langchain-ollama
+
+# Vector store
+langchain-qdrant
+qdrant-client
