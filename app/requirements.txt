@@ -188,7 +188,7 @@ typing-extensions==4.16.0
     #   langchain-protocol
     #   langsmith
     #   openai
-    #   opentelemetry-api
+    #   opentelemetry-app
     #   pydantic
     #   pydantic-core
     #   pydantic-settings
