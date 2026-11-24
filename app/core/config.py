@@ -41,7 +41,7 @@ class Settings(BaseSettings):
     # --- Documents and ingestion ---
     data_dir: Path = Path("/app/data/raw")
     chunk_size: int = Field(default=1000, gt=0)
-    chunk_overlap: int = Field(default=150, ge=0)
+    chunk_overlap: int = Field(default=200, ge=0)
 
     # --- RAG ---
     top_k: int = Field(default=4, ge=1, le=20)
