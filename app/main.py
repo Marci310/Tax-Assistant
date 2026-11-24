@@ -1,23 +1,18 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
-import os
+
+from api.main import api_router
+from core.config import get_settings
+from core.db import close_qdrant_client
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # startup: runs before the first request
+    get_settings()
     yield
-    # shutdown: runs when the app stops
-    print("Shutting down...")
-
-app = FastAPI(lifespan=lifespan)
+    close_qdrant_client()
 
 
-@app.get("/")
-async def root():
-    return {"message": "Hello World"}
-
-
-@app.get("/hello/{name}")
-async def say_hello(name: str):
-    return {"message": f"Hello {name}"}
+app = FastAPI(title="Tax Assistant", lifespan=lifespan)
+app.include_router(api_router)

@@ -10,7 +10,7 @@ from models import HealthCheck
 router = APIRouter()
 @router.get(
     "/health",
-    response_model=HealthCheck,
+    response_model=HealthCheck
 )
 def health_check(
     response: Response,
