@@ -10,7 +10,13 @@ router = APIRouter()
 
 @router.post(
     "/ask",
-    response_model=ReturnMessage
+    response_model=ReturnMessage,
+    responses={
+        422: {"model": ErrorMessage, "description": "Invalid input, e.g. an empty question."},
+        502: {"model": ErrorMessage, "description": "The LLM provider returned an error."},
+        503: {"model": ErrorMessage, "description": "The vector store or LLM is unavailable."},
+        504: {"model": ErrorMessage, "description": "The LLM did not answer in time."},
+    },
 )
 async def ask(
     message: MessageIn,

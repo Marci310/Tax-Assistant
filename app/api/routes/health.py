@@ -10,7 +10,8 @@ from models import HealthCheck
 router = APIRouter()
 @router.get(
     "/health",
-    response_model=HealthCheck
+    response_model=HealthCheck,
+    responses={503: {"model": HealthCheck, "description": "A dependency is unavailable."}},
 )
 def health_check(
     response: Response,
