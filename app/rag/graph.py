@@ -1,3 +1,4 @@
+import asyncio
 from functools import partial
 from typing import TypedDict
 
@@ -32,11 +33,12 @@ class QAState(TypedDict, total=False):
 
 
 def build_graph(vector_store: VectorStore, chat_model: BaseChatModel, settings: Settings) -> CompiledStateGraph:
+    semaphore = asyncio.Semaphore(settings.max_concurrent_llm_calls)
     graph = StateGraph(QAState)
     graph.add_node("detect_language", detect_language_node)
     graph.add_node("retrieve", partial(retrieve, vector_store=vector_store, min_similarity=settings.min_similarity))
     graph.add_node("no_answer", no_answer)
-    graph.add_node("answer", partial(answer, chat_model=chat_model))
+    graph.add_node("answer", partial(answer, chat_model=chat_model, semaphore=semaphore))
     graph.set_entry_point("detect_language")
     graph.add_edge("detect_language", "retrieve")
     graph.add_conditional_edges("retrieve", route, ["answer", "no_answer"])
@@ -69,7 +71,7 @@ def format_context(documents: list[tuple[Document, float]]) -> str:
     return "\n\n".join(blocks)
 
 
-async def answer(state: QAState, chat_model: BaseChatModel) -> dict:
+async def answer(state: QAState, chat_model: BaseChatModel, semaphore: asyncio.Semaphore) -> dict:
     context = format_context(state["documents"])
     language = state["language"]
     messages = PROMPT.format_messages(
@@ -78,6 +80,7 @@ async def answer(state: QAState, chat_model: BaseChatModel) -> dict:
         language_name=LANGUAGE_NAMES[language],
         no_answer=NO_ANSWER[language],
     )
-    response = await chat_model.ainvoke(messages)
+    async with semaphore:
+        response = await chat_model.ainvoke(messages)
     answered = not any(sentence.rstrip(".") in response.content for sentence in NO_ANSWER.values())
     return {"answer": response.content, "answered": answered}

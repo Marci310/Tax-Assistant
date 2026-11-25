@@ -50,6 +50,7 @@ class Settings(BaseSettings):
     top_k: int = Field(default=4, ge=1, le=20)
     llm_timeout_seconds: float = Field(default=60.0, gt=0)
     min_similarity: float = Field(default=0.45, ge=0, le=1)
+    max_concurrent_llm_calls: int = Field(default=4, ge=1)
 
     @model_validator(mode="after")
     def check_consistency(self) -> "Settings":
