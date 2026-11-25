@@ -29,11 +29,13 @@ class Settings(BaseSettings):
     openai_api_key: SecretStr | None = None
     openai_chat_model: str = "gpt-4.1-mini"
     openai_embedding_model: str = "text-embedding-3-small"
+    openai_min_similarity: float = Field(default=0.32, ge=0, le=1)
 
     # --- Ollama ---
     ollama_base_url: str = "http://ollama:11434"
     ollama_chat_model: str = "gemma3:12b"
     ollama_embedding_model: str = "bge-m3"
+    ollama_min_similarity: float = Field(default=0.45, ge=0, le=1)
 
     # --- Qdrant ---
     qdrant_url: str = "http://qdrant:6333"
@@ -49,7 +51,6 @@ class Settings(BaseSettings):
     # --- RAG ---
     top_k: int = Field(default=4, ge=1, le=20)
     llm_timeout_seconds: float = Field(default=60.0, gt=0)
-    min_similarity: float = Field(default=0.45, ge=0, le=1)
     max_concurrent_llm_calls: int = Field(default=4, ge=1)
 
     @model_validator(mode="after")
@@ -67,6 +68,10 @@ class Settings(BaseSettings):
     @property
     def chat_model(self) -> str:
         return self.openai_chat_model if self.llm_provider == "openai" else self.ollama_chat_model
+
+    @property
+    def min_similarity(self) -> float:
+        return self.openai_min_similarity if self.llm_provider == "openai" else self.ollama_min_similarity
 
 
 @lru_cache

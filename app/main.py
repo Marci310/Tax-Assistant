@@ -1,11 +1,13 @@
 import asyncio
 import logging
+from http import HTTPStatus
 from contextlib import asynccontextmanager
 from asgi_correlation_id import CorrelationIdFilter, CorrelationIdMiddleware, correlation_id
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from api.dependencies import get_graph
 from api.main import api_router
@@ -70,6 +72,15 @@ def error_response(status_code: int, error: str, message: str) -> JSONResponse:
 async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
     logger.warning("%s on %s: %s", exc.error, request.url.path, exc, exc_info=exc.__cause__)
     return error_response(exc.status_code, exc.error, str(exc))
+
+
+@app.exception_handler(StarletteHTTPException)
+async def http_error_handler(request: Request, exc: StarletteHTTPException) -> JSONResponse:
+    error = HTTPStatus(exc.status_code).phrase.lower().replace(" ", "_")
+    logger.info("%s on %s %s", exc.status_code, request.method, request.url.path)
+    response = error_response(exc.status_code, error, str(exc.detail))
+    response.headers.update(exc.headers or {})
+    return response
 
 
 @app.exception_handler(RequestValidationError)

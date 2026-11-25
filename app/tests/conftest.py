@@ -23,7 +23,7 @@ def settings() -> Settings:
     return Settings(
         _env_file=None,
         llm_provider="ollama",
-        min_similarity=0.45,
+        ollama_min_similarity=0.45,
         top_k=4,
         llm_timeout_seconds=5,
         max_concurrent_llm_calls=2,

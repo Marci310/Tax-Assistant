@@ -28,7 +28,9 @@ def assert_has_real_sources(data: dict) -> None:
     for source in data["sources"]:
         assert source["name"]
         assert source["page_number"] >= 1
-        assert source["similarity"] >= 0.45
+        assert 0 < source["similarity"] <= 1
+    similarities = [source["similarity"] for source in data["sources"]]
+    assert similarities == sorted(similarities, reverse=True)
 
 
 async def test_health(client):

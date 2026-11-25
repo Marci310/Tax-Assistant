@@ -219,3 +219,25 @@ def test_health_degraded_when_qdrant_down(qdrant_mock, make_client):
     assert body["qdrant_healthy"] is False
     assert body["indexed_chunks"] == 0
     qdrant_mock.count.assert_not_called()
+
+
+# --- HTTP errors outside validation (400 / 404 / 405) ---
+
+@pytest.mark.parametrize("method, url, kwargs, status, error", [
+    ("get", "/api/v1/unknown", {}, 404, "not_found"),
+    ("get", ASK, {}, 405, "method_not_allowed"),
+    ("post", ASK, {"content": "é".encode("latin-1"), "headers": {"Content-Type": "application/json"}}, 400, "bad_request"),
+])
+def test_http_errors_use_error_format(method, url, kwargs, status, error, make_client):
+    client = make_client(AsyncMock())
+
+    response = getattr(client, method)(url, **kwargs)
+
+    assert response.status_code == status
+    assert response.json() == {"error": error, "message": ANY, "request_id": ANY, "timestamp": ANY}
+
+
+def test_method_not_allowed_keeps_allow_header(make_client):
+    response = make_client(AsyncMock()).get(ASK)
+
+    assert response.headers["Allow"] == "POST"
