@@ -26,6 +26,58 @@ If the booklets do not cover the question, the app says so instead of guessing. 
 - *"Ki a társasági adó alanya?"* ("Who is subject to corporate income tax?")
 - *"Mi a legjobb pizza feltét?"* ("What is the best pizza topping?"): not covered, so the app says it cannot help.
 
+## Quick start
+
+Requirements: Docker with Docker Compose. For local mode you also need an NVIDIA GPU (about 10 GB of VRAM for the default models).
+
+**1. Configure.** Copy the example config and choose a provider:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+- `LLM_PROVIDER=openai`: cloud mode. Set `OPENAI_API_KEY` in `.env`.
+- `LLM_PROVIDER=ollama`: local mode. Free, and no data leaves the machine.
+
+**2. Add the booklets.** Put the 4 NAV booklet PDFs into `data/raw/`. The file names must keep the NAV format, e.g. `41 A társasági adó legfontosabb szabályai 20260202.pdf`, because the booklet number, title and date are read from them.
+
+**3. Start.**
+
+```powershell
+# Cloud mode (OpenAI)
+docker compose up --build -d --wait
+
+# Local mode (Ollama on the GPU)
+docker compose --profile local up --build -d --wait
+```
+
+On the first start the booklets are read, split into chunks and stored in Qdrant. In local mode the models are downloaded first (several GB). Later starts reuse both and skip this work. `--wait` makes the command return only when the backend reports `healthy`, which happens after indexing has finished. To follow progress, run `docker compose logs -f backend` in a second terminal.
+
+**4. Try it.**
+
+- Swagger UI: http://localhost:8000/docs
+- Health check: http://localhost:8000/health
+- Sample requests: [`app/main.http`](app/main.http), which runs in VS Code (REST Client) or JetBrains IDEs.
+- From PowerShell:
+
+```powershell
+Invoke-RestMethod -Method Post -Uri http://localhost:8000/api/v1/ask -ContentType "application/json; charset=utf-8" -Body '{"question": "Mikor kell benyújtani a társasági adó bevallását?"}'
+```
+
+In local mode the first question takes up to a minute while the model loads into GPU memory. After that, answers take a few seconds.
+
+**5. Run the tests.**
+
+```powershell
+# Unit tests: mocked, no Qdrant or LLM needed
+docker compose run --rm tests
+
+# Integration tests: against the running stack from step 3
+docker compose run --rm tests python -m pytest -m integration -v
+```
+
+**Stop** with `docker compose --profile local down`. The indexed chunks and downloaded models are kept in Docker volumes. Add `-v` to delete them too.
+
 ## Data
 
 - The 4 NAV information booklets on corporate income tax (*Információs füzetek*, 2026 edition): official, public, Hungarian-language PDFs.

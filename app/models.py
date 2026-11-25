@@ -22,7 +22,6 @@ class MessageIn(BaseModel):
         description="How many passages to retrieve. Uses the server default if omitted.",
     )
 
-    # Shown as ready-to-send sample requests in the /docs page.
     model_config = ConfigDict(
         json_schema_extra={
             "examples": [
@@ -34,7 +33,7 @@ class MessageIn(BaseModel):
 
 
 class Source(BaseModel):
-    name: str = Field(description="File name of the booklet.")
+    name: str = Field(description="Title of the booklet.")
     page_number: int | None = Field(default=None, ge=1)
     text: str = Field(description="Excerpt of the passage the answer used.")
     similarity: float | None = Field(default=None, description="Cosine similarity, higher is closer.")

@@ -6,5 +6,3 @@ __pycache__/
 .idea/
 .env
 *.http
-requirements-dev.*
-tests/
