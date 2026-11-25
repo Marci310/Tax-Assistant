@@ -4,8 +4,10 @@ from langchain_core.embeddings import Embeddings
 from langchain_core.language_models import BaseChatModel
 from langchain_ollama import ChatOllama, OllamaEmbeddings
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_qdrant import QdrantVectorStore
 
 from core.config import Settings
+from core.db import get_qdrant_client
 
 
 @lru_cache
@@ -39,4 +41,12 @@ def get_chat_model(settings: Settings) -> BaseChatModel:
         base_url=settings.ollama_base_url,
         client_kwargs={"timeout": settings.llm_timeout_seconds},
         temperature=0,
+    )
+
+@lru_cache
+def get_vector_store(settings: Settings) -> QdrantVectorStore:
+    return QdrantVectorStore(
+        client=get_qdrant_client(),
+        collection_name=settings.collection_name,
+        embedding=get_embeddings(settings),
     )

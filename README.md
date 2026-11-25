@@ -36,3 +36,24 @@ If the booklets do not cover the question, the app says so instead of guessing. 
 - It answers lookup questions: rules, deadlines, obligations and conditions written in the booklets. It does not calculate taxes or analyse company data.
 - Its knowledge is limited to the selected 2026 booklets.
 - It provides information, not tax advice.
+
+## Architecture
+
+```mermaid
+graph TD;
+        __start__([<p>__start__</p>]):::first
+        detect_language(detect_language)
+        retrieve(retrieve)
+        no_answer(no_answer)
+        answer(answer)
+        __end__([<p>__end__</p>]):::last
+        __start__ --> detect_language;
+        detect_language --> retrieve;
+        retrieve -.-> answer;
+        retrieve -.-> no_answer;
+        answer --> __end__;
+        no_answer --> __end__;
+        classDef default fill:#f2f0ff,line-height:1.2
+        classDef first fill-opacity:0
+        classDef last fill:#bfb6fc
+```

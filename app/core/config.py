@@ -11,7 +11,8 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
-        extra="ignore"
+        extra="ignore",
+        frozen=True,
     )
 
     # --- General ---
@@ -43,9 +44,12 @@ class Settings(BaseSettings):
     chunk_size: int = Field(default=1000, gt=0)
     chunk_overlap: int = Field(default=200, ge=0)
 
+    ingest_on_startup: bool = True
+
     # --- RAG ---
     top_k: int = Field(default=4, ge=1, le=20)
     llm_timeout_seconds: float = Field(default=60.0, gt=0)
+    min_similarity: float = Field(default=0.45, ge=0, le=1)
 
     @model_validator(mode="after")
     def check_consistency(self) -> "Settings":
