@@ -3,12 +3,18 @@ import re
 from bisect import bisect_right
 from itertools import groupby
 from pathlib import Path
+from uuid import NAMESPACE_URL, uuid5
 
 import pypdf
 from langchain_core.documents import Document
+from langchain_core.embeddings import Embeddings
+from langchain_qdrant import QdrantVectorStore
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+from qdrant_client import QdrantClient
 
 from core.config import Settings, get_settings
+from core.db import count_points, ensure_collection, get_qdrant_client
+from integrations.providers import get_embeddings
 
 logger = logging.getLogger(__name__)
 
@@ -210,16 +216,45 @@ def split_documents(pages: list[Document], settings: Settings) -> list[Document]
     logger.info("Split %d pages into %d chunks", len(pages), len(chunks))
     return chunks
 
-def ingest_documents(data_dir: Path, settings: Settings) -> list[Document]:
-    pages = clean_documents(load_documents(data_dir))
-    return split_documents(pages, settings)
+# --- 4. Embed + store ------------------------------------------------------
+
+def chunk_id(chunk: Document) -> str:
+    key = f"{chunk.metadata['source']}:{chunk.metadata['start_index']}"
+    return str(uuid5(NAMESPACE_URL, key))
+
+
+def ingest(settings: Settings, client: QdrantClient, embeddings: Embeddings) -> int:
+    name = settings.collection_name
+    chunks = split_documents(clean_documents(load_documents(settings.data_dir)), settings)
+    if not chunks:
+        logger.warning("Nothing to ingest from %s", settings.data_dir)
+        return 0
+
+    vector_size = len(embeddings.embed_query("dimension probe"))
+    ensure_collection(client, name, vector_size)
+
+    existing = count_points(client, name)
+    if existing == len(chunks):
+        logger.info("Collection '%s' already has all %d chunks, skipping", name, existing)
+        return existing
+
+    store = QdrantVectorStore(client=client, collection_name=name, embedding=embeddings)
+    store.add_documents(chunks, ids=[chunk_id(chunk) for chunk in chunks], batch_size=64)
+    logger.info("Stored %d chunks in '%s' (vector size %d)", len(chunks), name, vector_size)
+    return len(chunks)
 
 
 # --- Preview: python -m rag.ingestion ---------------------------------------
 
 if __name__ == "__main__":
+    import sys
+
     logging.basicConfig(level=logging.INFO)
     settings = get_settings()
+
+    if "--store" in sys.argv:
+        ingest(settings, get_qdrant_client(), get_embeddings(settings))
+        sys.exit(0)
 
     pages = clean_documents(load_documents(settings.data_dir))
     chunks = split_documents(pages, settings)
