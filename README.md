@@ -39,7 +39,20 @@ Copy-Item .env.example .env
 - `LLM_PROVIDER=openai`: cloud mode. Set `OPENAI_API_KEY` in `.env`.
 - `LLM_PROVIDER=ollama`: local mode. Free, and no data leaves the machine.
 
-**2. Add the booklets.** Put the 4 NAV booklet PDFs into `data/raw/`. The file names must keep the NAV format, e.g. `41 A társasági adó legfontosabb szabályai 20260202.pdf`, because the booklet number, title and date are read from them.
+**2. Download the booklets.** The PDFs are not part of this repository. They belong to NAV and are downloaded from its [Információs füzetek 2026](https://nav.gov.hu/ugyfeliranytu/nezzen-utana/inf_fuz/2026) page. Run this from the project root:
+
+```powershell
+$base = "https://nav.gov.hu/pfile/file?path=%2Fugyfeliranytu%2Fnezzen-utana%2Finf_fuz%2F2026%2F"
+New-Item -ItemType Directory -Force data/raw | Out-Null
+curl.exe -fL -o "data/raw/13 A nonprofit szervezetek adózása 20261001.pdf" "${base}13.-a-nonprofit-szervezetek-adozasa-2026-10-01"
+curl.exe -fL -o "data/raw/41 A társasági adó legfontosabb szabályai 20260202.pdf" "${base}41.-A-tarsasagi-ado-legfontosabb-szabalyai-2026.02.02"
+curl.exe -fL -o "data/raw/55 Tao-felajánlás 20260728.pdf" "${base}55.-Tao-felajanlas-2026.-07.-28."
+curl.exe -fL -o "data/raw/93 Növekedési adóhitel 20260130.pdf" "${base}93.-Novekedesi-adohitel-20260130"
+```
+
+On Linux or macOS, use the same lines with `base="..."`, `mkdir -p data/raw` and `curl` instead of `curl.exe`.
+
+Keep the file names as they are: the booklet number, title and publication date are read from them. NAV replaces the files when it publishes a new edition, so if a link stops working, download the current edition from the page above and name it in the same format.
 
 **3. Start.**
 
