@@ -39,6 +39,8 @@ async def lifespan(app: FastAPI):
     settings = get_settings()
     configure_logging(settings.log_level)
     logger.info("Starting with provider=%s, collection=%s", settings.llm_provider, settings.collection_name)
+    if settings.api_key is None:
+        logger.warning("API_KEY is not set: the API is open to anyone. Set it in production.")
 
     if settings.ingest_on_startup:
         try:

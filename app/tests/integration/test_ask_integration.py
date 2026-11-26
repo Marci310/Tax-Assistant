@@ -14,8 +14,14 @@ def base_url() -> str:
 
 
 @pytest.fixture
-async def client(base_url):
-    async with httpx.AsyncClient(base_url=base_url, timeout=120) as client:
+def api_key() -> str | None:
+    return os.environ.get("API_KEY") or None
+
+
+@pytest.fixture
+async def client(base_url, api_key):
+    headers = {"X-API-Key": api_key} if api_key else {}
+    async with httpx.AsyncClient(base_url=base_url, timeout=120, headers=headers) as client:
         try:
             await client.get("/health")
         except httpx.TransportError:
@@ -77,3 +83,13 @@ async def test_invalid_input(client):
     data = response.json()
     assert data["error"] == "invalid_request"
     assert data["message"].startswith("question:")
+
+
+async def test_missing_api_key_returns_401(base_url, api_key):
+    if api_key is None:
+        pytest.skip("API_KEY is not set, auth is off")
+    async with httpx.AsyncClient(base_url=base_url, timeout=30) as client:
+        response = await client.post(ASK, json={"question": "Mi a növekedési adóhitel?"})
+
+    assert response.status_code == 401
+    assert response.json()["error"] == "unauthorized"

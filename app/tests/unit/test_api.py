@@ -1,5 +1,5 @@
 import asyncio
-from unittest.mock import ANY, AsyncMock, MagicMock
+from unittest.mock import ANY, AsyncMock
 
 import httpx
 import ollama
@@ -8,8 +8,6 @@ import pytest
 from langchain_core.language_models import FakeListChatModel
 from qdrant_client.http.exceptions import ResponseHandlingException, UnexpectedResponse
 
-from core.config import get_settings
-from core.db import get_qdrant_client
 from main import app
 from rag.graph import NO_ANSWER, build_graph
 
@@ -184,16 +182,6 @@ def test_client_request_id_is_reused(make_client):
 
 
 # --- Health ---
-
-@pytest.fixture
-def qdrant_mock(settings, make_client):
-    client = MagicMock()
-    client.collection_exists.return_value = True
-    client.count.return_value.count = 317
-    app.dependency_overrides[get_qdrant_client] = lambda: client
-    app.dependency_overrides[get_settings] = lambda: settings
-    return client
-
 
 def test_health_ok(qdrant_mock, make_client):
     response = make_client(AsyncMock()).get("/health")

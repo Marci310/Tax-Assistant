@@ -2,6 +2,10 @@ class AppError(Exception):
     status_code = 500
     error = "internal_error"
 
+class AuthenticationError(AppError):
+    status_code = 401
+    error = "unauthorized"
+
 class LLMTimeoutError(AppError):
     status_code = 504
     error = "llm_timeout"

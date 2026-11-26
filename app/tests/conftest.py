@@ -1,11 +1,15 @@
+from unittest.mock import MagicMock
+
 import pytest
 from langchain_core.documents import Document
 from fastapi.testclient import TestClient
 
 from api.dependencies import get_qa_service
 from api.services.qa_services import QAService
-from core.config import Settings
+from core.config import Settings, get_settings
+from core.db import get_qdrant_client
 from main import app
+from blockbuster import blockbuster_ctx
 
 
 class StubVectorStore:
@@ -28,6 +32,7 @@ def settings() -> Settings:
         llm_timeout_seconds=5,
         max_concurrent_llm_calls=2,
         ingest_on_startup=False,
+        api_key=None,
     )
 
 
@@ -54,7 +59,21 @@ def make_client(settings):
     def _make(graph, test_settings: Settings | None = None) -> TestClient:
         service_settings = test_settings or settings
         app.dependency_overrides[get_qa_service] = lambda: QAService(service_settings, graph)
+        app.dependency_overrides[get_settings] = lambda: service_settings
         return TestClient(app, raise_server_exceptions=False)
 
     yield _make
     app.dependency_overrides.clear()
+
+@pytest.fixture(autouse=True)
+def blockbuster():
+    with blockbuster_ctx() as bb:
+        yield bb
+
+@pytest.fixture
+def qdrant_mock(make_client):
+    client = MagicMock()
+    client.collection_exists.return_value = True
+    client.count.return_value.count = 317
+    app.dependency_overrides[get_qdrant_client] = lambda: client
+    return client

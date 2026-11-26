@@ -12,6 +12,7 @@ router = APIRouter()
     "/ask",
     response_model=ReturnMessage,
     responses={
+        401: {"model": ErrorMessage, "description": "Missing or invalid API key."},
         422: {"model": ErrorMessage, "description": "Invalid input, e.g. an empty question."},
         502: {"model": ErrorMessage, "description": "The LLM provider returned an error."},
         503: {"model": ErrorMessage, "description": "The vector store or LLM is unavailable."},

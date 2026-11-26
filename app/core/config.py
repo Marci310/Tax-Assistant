@@ -2,7 +2,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field, SecretStr, model_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     testing: bool = False
     environment: Literal["development", "production", "testing"] = "development"
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
+    api_key: SecretStr | None = None
 
     # --- Provider settings ---
     llm_provider: Literal["openai", "ollama"] = "openai"
@@ -52,6 +53,11 @@ class Settings(BaseSettings):
     top_k: int = Field(default=4, ge=1, le=20)
     llm_timeout_seconds: float = Field(default=60.0, gt=0)
     max_concurrent_llm_calls: int = Field(default=4, ge=1)
+
+    @field_validator("api_key", "openai_api_key", mode="before")
+    @classmethod
+    def empty_secret_is_none(cls, value: object) -> object:
+        return None if value == "" else value
 
     @model_validator(mode="after")
     def check_consistency(self) -> "Settings":

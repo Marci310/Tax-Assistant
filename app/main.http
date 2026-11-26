@@ -1,26 +1,39 @@
-### Health
+# Paste the API_KEY from .env here (don't commit it).
+@apiKey = change-me
+
+### Health (no key needed)
 GET http://localhost:8000/health
 
 ### Question in Hungarian
 POST http://localhost:8000/api/v1/ask
 Content-Type: application/json
+X-API-Key: {{apiKey}}
 
 {"question": "Mi a növekedési adóhitel?"}
 
 ### Question in English, with top_k
 POST http://localhost:8000/api/v1/ask
 Content-Type: application/json
+X-API-Key: {{apiKey}}
 
 {"question": "When is the corporate tax return due?", "top_k": 5}
 
 ### Not covered by the booklets
 POST http://localhost:8000/api/v1/ask
 Content-Type: application/json
+X-API-Key: {{apiKey}}
 
 {"question": "Hogyan kell pizzát sütni?"}
 
 ### Invalid input (too short) -> 422
 POST http://localhost:8000/api/v1/ask
 Content-Type: application/json
+X-API-Key: {{apiKey}}
 
 {"question": "a"}
+
+### Missing API key -> 401
+POST http://localhost:8000/api/v1/ask
+Content-Type: application/json
+
+{"question": "Mi a növekedési adóhitel?"}

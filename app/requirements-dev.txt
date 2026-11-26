@@ -4,6 +4,8 @@ anyio==4.16.0
     # via
     #   -c requirements.txt
     #   httpx
+blockbuster==1.5.29
+    # via -r requirements-dev.in
 certifi==2026.11.20
     # via
     #   -c requirements.txt
@@ -11,6 +13,8 @@ certifi==2026.11.20
     #   httpx
 colorama==0.4.6
     # via pytest
+forbiddenfruit==0.1.5
+    # via blockbuster
 h11==0.16.0
     # via
     #   -c requirements.txt
