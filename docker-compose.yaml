@@ -12,6 +12,8 @@ services:
     env_file: .env
     volumes:
       - ./data/raw:/app/data/raw:ro
+    environment:
+      INGEST_ON_STARTUP: "false"
     depends_on:
       qdrant:
         condition: service_healthy
@@ -19,13 +21,31 @@ services:
         # Only exists in the "local" profile; in cloud mode this dependency is skipped.
         condition: service_completed_successfully
         required: false
+      ingest:
+        condition: service_completed_successfully
     healthcheck:
       test: [ "CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" ]
       interval: 10s
       timeout: 5s
       retries: 3
-      start_period: 300s
+      start_period: 30s
     restart: unless-stopped
+
+  ingest:
+    build:
+      context: app
+      target: runtime
+    env_file: .env
+    volumes:
+      - ./data/raw:/app/data/raw:ro
+    command: ["python", "-m", "rag.ingestion", "--store"]
+    depends_on:
+      qdrant:
+        condition: service_healthy
+      ollama-init:
+        condition: service_completed_successfully
+        required: false
+    restart: "no"
 
   qdrant:
     image: qdrant/qdrant:v1.20.2
@@ -85,6 +105,7 @@ services:
     profiles: ["test"]
     environment:
       BASE_URL: http://backend:8000
+    env_file: .env
     volumes:
       - ./app:/app
 
