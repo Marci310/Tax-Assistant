@@ -10,6 +10,8 @@ services:
     ports:
       - "8000:8000"
     env_file: .env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - ./data/raw:/app/data/raw:ro
     environment:
@@ -36,6 +38,8 @@ services:
       context: app
       target: runtime
     env_file: .env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - ./data/raw:/app/data/raw:ro
     command: ["python", "-m", "rag.ingestion", "--store"]
@@ -67,6 +71,8 @@ services:
       - "11434:11434"
     volumes:
       - ollama_models:/root/.ollama
+    environment:
+      OLLAMA_KEEP_ALIVE: "1h"
     deploy:
       resources:
         reservations:
@@ -92,7 +98,10 @@ services:
     env_file: .env
     entrypoint: ["/bin/sh", "-c"]
     command:
-      - ollama pull "$${OLLAMA_CHAT_MODEL}" && ollama pull "$${OLLAMA_EMBEDDING_MODEL}"
+      - >-
+        ollama pull "$${OLLAMA_CHAT_MODEL}" &&
+        ollama pull "$${OLLAMA_EMBEDDING_MODEL}" &&
+        ollama run "$${OLLAMA_CHAT_MODEL}" "Reply with: ok" > /dev/null
     restart: "no"
 
   # Unit tests:        docker compose run --rm tests
@@ -106,6 +115,8 @@ services:
     environment:
       BASE_URL: http://backend:8000
     env_file: .env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - ./app:/app
 

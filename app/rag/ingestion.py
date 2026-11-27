@@ -8,15 +8,19 @@ from uuid import NAMESPACE_URL, uuid5
 import pypdf
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
-from langchain_qdrant import QdrantVectorStore
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from qdrant_client import QdrantClient
 
 from core.config import Settings, get_settings
-from integrations.qdrant import count_points, ensure_collection, get_qdrant_client
+from integrations.qdrant import count_points, ensure_collection, get_qdrant_client, store_documents
 from integrations.providers import get_embeddings
 
 logger = logging.getLogger(__name__)
+
+
+class NoDocumentsError(RuntimeError):
+    pass
+
 
 # regexes
 PAGE_NUMBER_LINE = re.compile(r"^\s*\d{1,3}\s*$")
@@ -227,8 +231,9 @@ def ingest(settings: Settings, client: QdrantClient, embeddings: Embeddings) -> 
     name = settings.collection_name
     chunks = split_documents(clean_documents(load_documents(settings.data_dir)), settings)
     if not chunks:
-        logger.warning("Nothing to ingest from %s", settings.data_dir)
-        return 0
+        raise NoDocumentsError(
+            f"No PDF text found in {settings.data_dir}. Download the booklets first (README, step 2)."
+        )
 
     vector_size = len(embeddings.embed_query("dimension probe"))
     ensure_collection(client, name, vector_size)
@@ -238,8 +243,7 @@ def ingest(settings: Settings, client: QdrantClient, embeddings: Embeddings) -> 
         logger.info("Collection '%s' already has all %d chunks, skipping", name, existing)
         return existing
 
-    store = QdrantVectorStore(client=client, collection_name=name, embedding=embeddings)
-    store.add_documents(chunks, ids=[chunk_id(chunk) for chunk in chunks], batch_size=64)
+    store_documents(client, name, embeddings, chunks, ids=[chunk_id(chunk) for chunk in chunks])
     logger.info("Stored %d chunks in '%s' (vector size %d)", len(chunks), name, vector_size)
     return len(chunks)
 
@@ -253,7 +257,11 @@ if __name__ == "__main__":
     settings = get_settings()
 
     if "--store" in sys.argv:
-        ingest(settings, get_qdrant_client(), get_embeddings(settings))
+        try:
+            ingest(settings, get_qdrant_client(), get_embeddings(settings))
+        except NoDocumentsError as exc:
+            logger.error("%s", exc)
+            sys.exit(1)
         sys.exit(0)
 
     pages = clean_documents(load_documents(settings.data_dir))

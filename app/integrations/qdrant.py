@@ -1,6 +1,9 @@
 import logging
 from functools import lru_cache
 
+from langchain_core.documents import Document
+from langchain_core.embeddings import Embeddings
+from langchain_qdrant import QdrantVectorStore
 from qdrant_client import QdrantClient, models
 
 from core.config import get_settings
@@ -40,6 +43,17 @@ def ensure_collection(client: QdrantClient, name: str, vector_size: int) -> bool
     )
     logger.info("Created collection '%s' (vector size %d)", name, vector_size)
     return True
+
+
+def store_documents(
+    client: QdrantClient,
+    name: str,
+    embeddings: Embeddings,
+    documents: list[Document],
+    ids: list[str],
+) -> None:
+    store = QdrantVectorStore(client=client, collection_name=name, embedding=embeddings)
+    store.add_documents(documents, ids=ids, batch_size=64)
 
 
 def count_points(client: QdrantClient, name: str) -> int:

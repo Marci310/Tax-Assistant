@@ -1,0 +1,24 @@
+# Local mode without an NVIDIA GPU (CPU only).
+# Use together with the main file:
+#   docker compose -f docker-compose.yaml -f docker-compose.cpu.yaml --profile local up --build -d --wait
+
+
+x-cpu-settings: &cpu-settings
+  OLLAMA_CHAT_MODEL: gemma3:4b
+  LLM_TIMEOUT_SECONDS: "300"
+
+services:
+  ollama:
+    deploy: !reset {}
+
+  ollama-init:
+    environment:
+      <<: *cpu-settings
+
+  ingest:
+    environment:
+      <<: *cpu-settings
+
+  backend:
+    environment:
+      <<: *cpu-settings

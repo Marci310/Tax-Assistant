@@ -1,5 +1,5 @@
-# Paste the API_KEY from .env here (don't commit it).
-@apiKey = change-me
+# The API key comes from http-client.private.env.json (git-ignored).
+# Select the "dev" environment in the run dropdown at the top of this file.
 
 ### Health (no key needed)
 GET http://localhost:8000/health

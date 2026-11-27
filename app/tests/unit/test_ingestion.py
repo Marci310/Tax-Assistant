@@ -1,12 +1,15 @@
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 from langchain_core.documents import Document
 
 from rag.ingestion import (
+    NoDocumentsError,
     booklet_info,
     chunk_id,
     clean_page,
+    ingest,
     join_pages,
     join_paragraphs,
     page_at,
@@ -208,3 +211,15 @@ def test_chunk_id_is_stable():
 @pytest.mark.parametrize("other", [chunk("a.pdf", 101), chunk("b.pdf", 100)])
 def test_chunk_id_differs(other):
     assert chunk_id(chunk("a.pdf", 100)) != chunk_id(other)
+
+
+# --- ingest ---
+
+def test_ingest_fails_without_documents(settings, tmp_path):
+    client, embeddings = MagicMock(), MagicMock()
+
+    with pytest.raises(NoDocumentsError, match="Download the booklets"):
+        ingest(settings.model_copy(update={"data_dir": tmp_path}), client, embeddings)
+
+    embeddings.embed_query.assert_not_called()
+    client.create_collection.assert_not_called()

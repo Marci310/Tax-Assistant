@@ -1,25 +1,21 @@
 import asyncio
 import logging
 
-import httpx
-import ollama
-import openai
 from langgraph.graph.state import CompiledStateGraph
-from qdrant_client.http.exceptions import UnexpectedResponse, ResponseHandlingException
 
 from core.config import Settings
 from core.exceptions import LLMProviderError, LLMRateLimitError, LLMTimeoutError, VectorStoreUnavailableError
 from core.metrics import QUESTIONS
 from api.schemas import ReturnMessage, Source
+from integrations.errors import (
+    PROVIDER_ERRORS,
+    RATE_LIMIT_ERRORS,
+    TIMEOUT_ERRORS,
+    VECTOR_STORE_ERRORS,
+    retry_after_seconds,
+)
 
 logger = logging.getLogger(__name__)
-
-DEFAULT_RETRY_AFTER_SECONDS = 10
-
-
-def retry_after(exc: openai.RateLimitError) -> str:
-    value = exc.response.headers.get("retry-after", "")
-    return value if value.isdigit() else str(DEFAULT_RETRY_AFTER_SECONDS)
 
 
 class QAService:
@@ -35,18 +31,18 @@ class QAService:
         try:
             async with asyncio.timeout(self.settings.llm_timeout_seconds):
                 result = await self.graph.ainvoke({"question": question, "top_k": top_k})
-        except (TimeoutError, httpx.TimeoutException, openai.APITimeoutError) as exc:
+        except TIMEOUT_ERRORS as exc:
             raise LLMTimeoutError(
                 f"No answer within {self.settings.llm_timeout_seconds} seconds."
             ) from exc
-        except (ResponseHandlingException, UnexpectedResponse) as exc:
+        except VECTOR_STORE_ERRORS as exc:
             raise VectorStoreUnavailableError("The vector store is unavailable.") from exc
-        except openai.RateLimitError as exc:
+        except RATE_LIMIT_ERRORS as exc:
             raise LLMRateLimitError(
                 "The language model provider is rate limited. Try again later.",
-                headers={"Retry-After": retry_after(exc)},
+                headers={"Retry-After": retry_after_seconds(exc)},
             ) from exc
-        except (httpx.HTTPError, openai.APIError, ollama.ResponseError, ConnectionError) as exc:
+        except PROVIDER_ERRORS as exc:
             raise LLMProviderError("The language model provider returned an error.") from exc
 
         QUESTIONS.labels(answered=str(result["answered"]).lower()).inc()
