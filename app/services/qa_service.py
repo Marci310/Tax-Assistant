@@ -10,7 +10,7 @@ from qdrant_client.http.exceptions import UnexpectedResponse, ResponseHandlingEx
 from core.config import Settings
 from core.exceptions import LLMProviderError, LLMRateLimitError, LLMTimeoutError, VectorStoreUnavailableError
 from core.metrics import QUESTIONS
-from models import ReturnMessage, Source
+from api.schemas import ReturnMessage, Source
 
 logger = logging.getLogger(__name__)
 

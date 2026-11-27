@@ -3,8 +3,8 @@ from typing import Annotated
 from fastapi import APIRouter, Depends
 
 from api.dependencies import get_qa_service
-from api.services.qa_services import QAService
-from models import ErrorMessage, MessageIn, ReturnMessage
+from services.qa_service import QAService
+from api.schemas import ErrorMessage, MessageIn, ReturnMessage
 
 router = APIRouter()
 

@@ -13,7 +13,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from qdrant_client import QdrantClient
 
 from core.config import Settings, get_settings
-from core.db import count_points, ensure_collection, get_qdrant_client
+from integrations.qdrant import count_points, ensure_collection, get_qdrant_client
 from integrations.providers import get_embeddings
 
 logger = logging.getLogger(__name__)

@@ -13,10 +13,10 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from api.dependencies import get_graph
 from api.main import api_router
 from core.config import get_settings
-from core.db import close_qdrant_client, get_qdrant_client
+from integrations.qdrant import close_qdrant_client, get_qdrant_client
 from core.exceptions import AppError
 from integrations.providers import get_embeddings
-from models import ErrorMessage
+from api.schemas import ErrorMessage
 from rag.ingestion import ingest
 
 logger = logging.getLogger(__name__)

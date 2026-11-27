@@ -6,7 +6,7 @@ from fastapi import Depends, Security
 from fastapi.security import APIKeyHeader
 from langgraph.graph.state import CompiledStateGraph
 
-from api.services.qa_services import QAService
+from services.qa_service import QAService
 from core.config import Settings, get_settings
 from core.exceptions import AuthenticationError
 from integrations.providers import get_chat_model, get_vector_store

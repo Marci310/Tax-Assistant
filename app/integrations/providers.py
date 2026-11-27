@@ -7,7 +7,7 @@ from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_qdrant import QdrantVectorStore
 
 from core.config import Settings
-from core.db import get_qdrant_client
+from integrations.qdrant import get_qdrant_client
 
 
 @lru_cache

@@ -5,9 +5,9 @@ from langchain_core.documents import Document
 from fastapi.testclient import TestClient
 
 from api.dependencies import get_qa_service
-from api.services.qa_services import QAService
+from services.qa_service import QAService
 from core.config import Settings, get_settings
-from core.db import get_qdrant_client
+from integrations.qdrant import get_qdrant_client
 from main import app
 from blockbuster import blockbuster_ctx
 

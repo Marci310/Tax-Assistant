@@ -4,8 +4,8 @@ from fastapi import APIRouter, Depends, Response, status
 from qdrant_client import QdrantClient
 
 from core.config import Settings, get_settings
-from core.db import count_points, get_qdrant_client, is_qdrant_healthy
-from models import HealthCheck
+from integrations.qdrant import count_points, get_qdrant_client, is_qdrant_healthy
+from api.schemas import HealthCheck
 
 router = APIRouter()
 @router.get(
