@@ -16,10 +16,6 @@ class Settings(BaseSettings):
     )
 
     # --- General ---
-    app_name: str = "Tax Assistant"
-    debug: bool = False
-    testing: bool = False
-    environment: Literal["development", "production", "testing"] = "development"
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
     api_key: SecretStr | None = None
 

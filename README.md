@@ -2,7 +2,7 @@
 
 A Python backend with a RAG component that answers questions about Hungarian corporate
 tax from the official NAV information booklets, and shows the booklet and page each
-answer comes from. If the booklets don't cover a question, it says so instead of guessing.
+answer comes from. If no relevant passage is found, it says so instead of guessing.
 
 ## The problem
 
@@ -18,12 +18,32 @@ this repository (they belong to NAV); step 2 below downloads them.
 
 **Out of scope:** tax advice, tax calculations, company data.
 
+**Features:**
+- `POST /api/v1/ask` answers a question and returns its sources: booklet title, page,
+  passage and similarity score. `GET /health` reports Qdrant status, indexed chunks and
+  the provider.
+- A LangGraph flow: language detection, retrieval with a similarity threshold, and an
+  answer only from the retrieved passages, or a fixed "not covered" answer.
+- A separate ingestion job that cleans, chunks, embeds and stores the booklets.
+- OpenAI or a free local Ollama (GPU or CPU), switched by one setting.
+- Input validation, one JSON error format for every error, and a request ID in every
+  response and log line.
+- API-key authentication.
+- A limit on parallel model calls and a 60 s timeout per question.
+- Prometheus metrics, a Grafana dashboard and a Locust load test, as optional add-ons.
+- Unit, integration, concurrency and blocking-call tests.
+
+**Not part of this prototype:** user management (only an API key), conversation history,
+a document upload API, a frontend, and RAG answer-quality evaluation.
+
 ---
 
 ## Quick start
 
-You need Docker Desktop (or Docker Engine with Compose). Run the commands from the
-project folder. Where Windows and macOS/Linux differ, both versions are given.
+You need Docker Desktop, or Docker Engine with Compose 2.24 or newer (tested with
+Compose 5.5 on Windows). For the NVIDIA GPU
+mode on Linux, the NVIDIA Container Toolkit must also be installed. Run the commands
+from the project folder. Where Windows and macOS/Linux differ, both versions are given.
 
 ### 1. Create the settings file
 
@@ -68,7 +88,8 @@ curl -fL -o "data/raw/93 Növekedési adóhitel 20260130.pdf" "${base}93.-Noveke
 ```
 
 Keep the file names: the booklet number, title and date are read from them. If this
-step is skipped, the start command fails with a message pointing back here.
+step is skipped, the start command stops with `service "ingest" didn't complete
+successfully`, and `docker compose logs ingest` says the booklets are missing.
 
 ### 3. Start
 
@@ -134,7 +155,7 @@ More sample requests are in `app/main.http`.
 docker compose run --rm --build tests
 ```
 
-Integration tests against the running app:
+Integration tests against the running app (in OpenAI mode they cost a few cents):
 
 ```bash
 docker compose run --rm tests python -m pytest -m integration -v
@@ -179,7 +200,7 @@ graph LR
 - `integrations/`: OpenAI, Ollama, Qdrant
 - `core/`: settings, error types, metrics
 
-Provider-specific code exists only in `integrations/`, so the graph can be tested with
+Provider-specific logic lives only in `integrations/`, so the graph can be tested with
 fakes and the provider is switched by configuration.
 
 **Key decisions:**
@@ -197,8 +218,8 @@ fakes and the provider is switched by configuration.
 - **~1000-character chunks with 200 overlap:** big enough to keep a rule together with its
   conditions, small enough for precise matches; the overlap keeps sentences that cross a
   chunk boundary findable.
-- **One error format** with a request ID. Every log line carries the same request ID;
-  questions are logged by length only, not their text.
+- **One error format** with a request ID. The app's own log lines carry the same request
+  ID; questions are logged by length only, not their text.
 
 **Trade-offs:**
 - **LangChain interfaces for models and the vector store:** an extra dependency layer, in
@@ -227,8 +248,11 @@ Local mode hardware:
 | Setup | Chat model | Memory | Disk | Speed (one question) |
 |---|---|---|---|---|
 | NVIDIA GPU | `gemma3:12b` | ~10 GB GPU memory | ~10 GB | a few seconds |
-| CPU only | `gemma3:4b` | ~6 GB RAM for Docker | ~5 GB | about 10–30 s |
-| Mac, native Ollama | `gemma3:12b` | 16 GB unified memory recommended | ~10 GB | a few seconds |
+| CPU only | `gemma3:4b` | ~6 GB RAM for Docker | ~5 GB | 11–28 s, measured on a desktop CPU |
+| Mac, native Ollama | `gemma3:12b` | 16 GB unified memory recommended | ~10 GB | not measured |
+
+The GPU memory and the CPU speed were measured; the other memory and disk figures are
+estimates. The Mac setup is documented but has not been tested on a Mac.
 
 How local mode works:
 - The `ollama` container runs the model server. In GPU mode it reserves the NVIDIA GPU;
@@ -271,16 +295,16 @@ Every error has the same shape:
 | Status | Meaning |
 |---|---|
 | 401 | missing or wrong API key |
-| 422 | invalid question (empty, under 3 or over 1000 characters, invalid JSON) |
+| 422 | invalid request (question empty, under 3 or over 1000 characters; `top_k` outside 1–10; invalid JSON) |
 | 502 | the model provider failed |
 | 503 | Qdrant unavailable, or provider rate limit (with `Retry-After`) |
-| 504 | no answer within 60 s |
+| 504 | no answer within the time limit (60 s; 300 s in CPU mode) |
 
 ---
 
 ## Tests
 
-- **Unit tests** (101) use a fake model and a fake vector store, so they need no network
+- **Unit tests** (102) use a fake model and a fake vector store, so they need no network
   or API key. They cover:
   - a successful answer
   - invalid input
@@ -303,18 +327,18 @@ Every error has the same shape:
 - There is no shared mutable state: settings are immutable, and the clients and the
   graph are only read after startup.
 - Each request has its own graph state.
-- The parallel-request test proves no answers mix.
+- The parallel-request test shows no answers mix.
 
 **Blocking work:**
 - The request path is async.
 - Synchronous library calls run in threads.
 - Ingestion is a separate job.
-- blockbuster confirms nothing blocks the event loop.
+- blockbuster found no blocking calls on the event loop in the tested paths.
 
 **Resource limits:**
 - A semaphore limits parallel LLM calls per process (`MAX_CONCURRENT_LLM_CALLS`).
 - A 60 s timeout covers each question.
-- OpenAI calls retry 3 times.
+- The OpenAI client retries a failed call up to 3 times.
 - Rate limits return 503 with `Retry-After`.
 - Next step: return 503 immediately when overloaded, instead of queueing until the
   timeout.
@@ -332,8 +356,10 @@ Every error has the same shape:
   ```
   - Grafana: http://localhost:3000
   - Locust: http://localhost:8089
-- Result with 4 users on one GPU: no failures, but a median of 21 s and about 11
+- Result with 4 users on one GPU, in a short 45 s run: no failures, but a median of 21 s and about 11
   answers per minute. The model itself slowed to ~28 s at p95.
+- At 40 users about half of the requests timed out after 60 s (504): demand was far
+  above what one GPU can answer.
 - **The limit is model inference, not the API.**
 - Improvement order:
   1. Cache repeated questions.

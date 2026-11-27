@@ -37,6 +37,3 @@ def get_qa_service(
     graph: Annotated[CompiledStateGraph, Depends(get_graph)],
 ) -> QAService:
     return QAService(settings, graph)
-
-
-QAServiceDep = Annotated[QAService, Depends(get_qa_service)]
