@@ -15,7 +15,7 @@ router = APIRouter()
         401: {"model": ErrorMessage, "description": "Missing or invalid API key."},
         422: {"model": ErrorMessage, "description": "Invalid input, e.g. an empty question."},
         502: {"model": ErrorMessage, "description": "The LLM provider returned an error."},
-        503: {"model": ErrorMessage, "description": "The vector store or LLM is unavailable."},
+        503: {"model": ErrorMessage, "description": "The vector store is unavailable, or the LLM provider is rate limited (see Retry-After)."},
         504: {"model": ErrorMessage, "description": "The LLM did not answer in time."},
     },
 )

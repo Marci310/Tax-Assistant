@@ -8,11 +8,18 @@ from langgraph.graph.state import CompiledStateGraph
 from qdrant_client.http.exceptions import UnexpectedResponse, ResponseHandlingException
 
 from core.config import Settings
-from core.exceptions import LLMTimeoutError, LLMProviderError, VectorStoreUnavailableError
+from core.exceptions import LLMProviderError, LLMRateLimitError, LLMTimeoutError, VectorStoreUnavailableError
 from core.metrics import QUESTIONS
 from models import ReturnMessage, Source
 
 logger = logging.getLogger(__name__)
+
+DEFAULT_RETRY_AFTER_SECONDS = 10
+
+
+def retry_after(exc: openai.RateLimitError) -> str:
+    value = exc.response.headers.get("retry-after", "")
+    return value if value.isdigit() else str(DEFAULT_RETRY_AFTER_SECONDS)
 
 
 class QAService:
@@ -34,6 +41,11 @@ class QAService:
             ) from exc
         except (ResponseHandlingException, UnexpectedResponse) as exc:
             raise VectorStoreUnavailableError("The vector store is unavailable.") from exc
+        except openai.RateLimitError as exc:
+            raise LLMRateLimitError(
+                "The language model provider is rate limited. Try again later.",
+                headers={"Retry-After": retry_after(exc)},
+            ) from exc
         except (httpx.HTTPError, openai.APIError, ollama.ResponseError, ConnectionError) as exc:
             raise LLMProviderError("The language model provider returned an error.") from exc
 

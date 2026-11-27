@@ -22,6 +22,11 @@ def failing_graph(exc: Exception) -> AsyncMock:
     return graph
 
 
+def rate_limit_error(headers: dict[str, str] | None = None) -> openai.RateLimitError:
+    response = httpx.Response(429, request=OPENAI_REQUEST, headers=headers)
+    return openai.RateLimitError("Rate limit reached", response=response, body=None)
+
+
 # --- Success paths ---
 
 def test_ask_success(settings, documents, make_vector_store, make_client):
@@ -120,6 +125,7 @@ def test_invalid_json_returns_422(make_client):
     (ConnectionError("down"), 502, "llm_unavailable"),
     (ollama.ResponseError("model not found"), 502, "llm_unavailable"),
     (openai.APIConnectionError(request=OPENAI_REQUEST), 502, "llm_unavailable"),
+    (rate_limit_error(), 503, "llm_rate_limited"),
     (ResponseHandlingException(Exception("down")), 503, "vector_store_unavailable"),
     (UnexpectedResponse(500, "error", b"", httpx.Headers()), 503, "vector_store_unavailable"),
     (RuntimeError("bug"), 500, "internal_error"),
@@ -131,6 +137,20 @@ def test_errors_are_mapped_to_status_codes(exc, status, error, make_client):
 
     assert response.status_code == status
     assert response.json() == {"error": error, "message": ANY, "request_id": ANY, "timestamp": ANY}
+
+
+@pytest.mark.parametrize("provider_headers, expected", [
+    ({"retry-after": "7"}, "7"),
+    ({}, "10"),
+    ({"retry-after": "soon"}, "10"),
+])
+def test_rate_limit_sets_retry_after(provider_headers, expected, make_client):
+    client = make_client(failing_graph(rate_limit_error(provider_headers)))
+
+    response = client.post(ASK, json=QUESTION)
+
+    assert response.status_code == 503
+    assert response.headers["Retry-After"] == expected
 
 
 def test_unexpected_error_does_not_leak_details(make_client):

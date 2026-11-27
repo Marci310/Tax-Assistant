@@ -74,7 +74,9 @@ def error_response(status_code: int, error: str, message: str) -> JSONResponse:
 @app.exception_handler(AppError)
 async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
     logger.warning("%s on %s: %s", exc.error, request.url.path, exc, exc_info=exc.__cause__)
-    return error_response(exc.status_code, exc.error, str(exc))
+    response = error_response(exc.status_code, exc.error, str(exc))
+    response.headers.update(exc.headers)
+    return response
 
 
 @app.exception_handler(StarletteHTTPException)
