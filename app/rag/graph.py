@@ -9,6 +9,7 @@ from langchain_core.vectorstores import VectorStore
 from langgraph.graph.state import CompiledStateGraph, StateGraph
 
 from core.config import Settings
+from core.metrics import LLM_DURATION
 from rag.language import LANGUAGE_NAMES, Language, detect_language
 
 NO_ANSWER: dict[Language, str] = {
@@ -81,6 +82,7 @@ async def answer(state: QAState, chat_model: BaseChatModel, semaphore: asyncio.S
         no_answer=NO_ANSWER[language],
     )
     async with semaphore:
-        response = await chat_model.ainvoke(messages)
+        with LLM_DURATION.time():
+            response = await chat_model.ainvoke(messages)
     answered = not any(sentence.rstrip(".") in response.content for sentence in NO_ANSWER.values())
     return {"answer": response.content, "answered": answered}

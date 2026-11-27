@@ -9,6 +9,7 @@ from qdrant_client.http.exceptions import UnexpectedResponse, ResponseHandlingEx
 
 from core.config import Settings
 from core.exceptions import LLMTimeoutError, LLMProviderError, VectorStoreUnavailableError
+from core.metrics import QUESTIONS
 from models import ReturnMessage, Source
 
 logger = logging.getLogger(__name__)
@@ -35,6 +36,8 @@ class QAService:
             raise VectorStoreUnavailableError("The vector store is unavailable.") from exc
         except (httpx.HTTPError, openai.APIError, ollama.ResponseError, ConnectionError) as exc:
             raise LLMProviderError("The language model provider returned an error.") from exc
+
+        QUESTIONS.labels(answered=str(result["answered"]).lower()).inc()
 
         sources = [
             Source(

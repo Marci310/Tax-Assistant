@@ -7,6 +7,7 @@ from asgi_correlation_id import CorrelationIdFilter, CorrelationIdMiddleware, co
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from prometheus_fastapi_instrumentator import Instrumentator
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from api.dependencies import get_graph
@@ -103,3 +104,7 @@ async def unhandled_error_handler(request: Request, exc: Exception) -> JSONRespo
     response = error_response(500, "internal_error", "An unexpected error occurred.")
     response.headers["X-Request-ID"] = correlation_id.get() or ""
     return response
+
+Instrumentator(
+    excluded_handlers=["/health", "^/metrics$"]
+).instrument(app, latency_lowr_buckets=(0.5, 1, 2, 5, 10, 20, 30, 60)).expose(app)

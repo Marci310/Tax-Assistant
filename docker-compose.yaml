@@ -109,6 +109,42 @@ services:
     volumes:
       - ./app:/app
 
+  locust:
+    image: locustio/locust:2.47.0
+    profiles: ["loadtest"]
+    ports:
+      - "8089:8089"
+    volumes:
+      - ./loadtest:/mnt/locust:ro
+    command: ["-f", "/mnt/locust/locustfile.py"]
+    environment:
+      BASE_URL: http://backend:8000
+      API_KEY: ${API_KEY}
+
+  prometheus:
+    image: prom/prometheus:v3.16.0
+    profiles: ["monitoring"]
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:13.0
+    profiles: ["monitoring"]
+    ports:
+      - "3000:3000"
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+    volumes:
+      - ./monitoring/grafana-provisioning:/etc/grafana/provisioning:ro
+      - grafana_data:/var/lib/grafana
+    restart: unless-stopped
+
 volumes:
   qdrant_data:
   ollama_models:
+  prometheus_data:
+  grafana_data:

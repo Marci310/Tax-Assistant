@@ -126,6 +126,10 @@ packaging==26.3
     #   langsmith
 portalocker==4.4.2
     # via qdrant-client
+prometheus-client==0.26.0
+    # via prometheus-fastapi-instrumentator
+prometheus-fastapi-instrumentator==8.1.0
+    # via -r requirements.in
 protobuf==7.36.2
     # via qdrant-client
 pydantic==2.14.4
@@ -174,6 +178,7 @@ starlette==1.10.0
     # via
     #   asgi-correlation-id
     #   fastapi
+    #   prometheus-fastapi-instrumentator
 tenacity==9.2.1
     # via langchain-core
 tiktoken==0.14.0

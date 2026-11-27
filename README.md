@@ -38,6 +38,7 @@ Copy-Item .env.example .env
 
 - `LLM_PROVIDER=openai`: cloud mode. Set `OPENAI_API_KEY` in `.env`.
 - `LLM_PROVIDER=ollama`: local mode. Free, and no data leaves the machine.
+- `API_KEY`: the key clients send in the `X-API-Key` header to use `/api/v1`. Generate one with `python -c "import secrets; print(secrets.token_urlsafe(32))"`. If it is empty, the API is open and the backend logs a warning. That is only acceptable for local development. `/health` never needs a key.
 
 **2. Download the booklets.** The PDFs are not part of this repository. They belong to NAV and are downloaded from its [Információs füzetek 2026](https://nav.gov.hu/ugyfeliranytu/nezzen-utana/inf_fuz/2026) page. Run this from the project root:
 
@@ -64,17 +65,17 @@ docker compose up --build -d --wait
 docker compose --profile local up --build -d --wait
 ```
 
-On the first start the booklets are read, split into chunks and stored in Qdrant. In local mode the models are downloaded first (several GB). Later starts reuse both and skip this work. `--wait` makes the command return only when the backend reports `healthy`, which happens after indexing has finished. To follow progress, run `docker compose logs -f backend` in a second terminal.
+On the first start the booklets are read, split into chunks and stored in Qdrant. In local mode the models are downloaded first (several GB). Later starts reuse both and skip this work. `--wait` makes the command return only when the backend reports `healthy`, which happens after indexing has finished. Indexing runs in the separate `ingest` container, which exits when it is done; the backend starts after it. To follow progress, run `docker compose logs -f ingest` in a second terminal.
 
 **4. Try it.**
 
 - Swagger UI: http://localhost:8000/docs
 - Health check: http://localhost:8000/health
-- Sample requests: [`app/main.http`](app/main.http), which runs in VS Code (REST Client) or JetBrains IDEs.
+- Sample requests: [`app/main.http`](app/main.http), which runs in VS Code (REST Client) or JetBrains IDEs. Set `@apiKey` at the top of the file first.
 - From PowerShell:
 
 ```powershell
-Invoke-RestMethod -Method Post -Uri http://localhost:8000/api/v1/ask -ContentType "application/json; charset=utf-8" -Body '{"question": "Mikor kell benyújtani a társasági adó bevallását?"}'
+Invoke-RestMethod -Method Post -Uri http://localhost:8000/api/v1/ask -ContentType "application/json; charset=utf-8" -Headers @{ "X-API-Key" = "<your API_KEY>" } -Body '{"question": "Mikor kell benyújtani a társasági adó bevallását?"}'
 ```
 
 In local mode the first question takes up to a minute while the model loads into GPU memory. After that, answers take a few seconds.
@@ -83,10 +84,10 @@ In local mode the first question takes up to a minute while the model loads into
 
 ```powershell
 # Unit tests: mocked, no Qdrant or LLM needed
-docker compose run --rm tests
+docker compose run --rm --build tests
 
 # Integration tests: against the running stack from step 3
-docker compose run --rm tests python -m pytest -m integration -v
+docker compose run --rm --build tests python -m pytest -m integration -v
 ```
 
 **Stop** with `docker compose --profile local down`. The indexed chunks and downloaded models are kept in Docker volumes. Add `-v` to delete them too.
@@ -122,3 +123,16 @@ graph TD;
         classDef first fill-opacity:0
         classDef last fill:#bfb6fc
 ```
+
+## Blocking-call check
+
+The app is async, so one blocking call on the event loop would stall every request in the same worker. To check for this, the tests run with [blockbuster](https://github.com/cbornet/blockbuster), the Python counterpart of Java's BlockHound. It raises an error when a blocking call, such as `time.sleep`, a sync socket or a file read, runs on the event loop.
+
+- **How:** an autouse fixture in `tests/conftest.py` turns it on for every test. A deliberate `time.sleep` in an async test was caught, which confirms the check works.
+- **Unit tests:** no blocking calls in the routes, the service, the error handlers or the graph nodes.
+- **`tests/integration/test_blocking_integration.py`:** runs the real graph in-process (real embedding, Qdrant and LLM). No blocking calls on the event loop.
+- **Note:** the HTTP integration tests don't check the backend, because blockbuster only sees the process it runs in.
+
+**Finding:** the LLM calls (`ChatOllama` and `ChatOpenAI`) are truly async. Retrieval is not: `QdrantVectorStore` has no async search, so LangChain runs the sync embedding and Qdrant query in the default thread pool. This doesn't block the loop, but every request in retrieval holds one thread, and the pool's default size, `min(32, CPU count + 4)`, becomes a hidden concurrency limit under load.
+
+**Next step:** a custom `retrieve` using `AsyncQdrantClient` and `aembed_query`, so that the whole request path is truly async.

@@ -3,6 +3,7 @@ fastapi
 uvicorn[standard]
 pydantic-settings
 asgi-correlation-id
+prometheus-fastapi-instrumentator
 
 # RAG pipeline
 langgraph
